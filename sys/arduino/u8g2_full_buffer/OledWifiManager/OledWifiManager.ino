@@ -35,9 +35,11 @@ constexpr unsigned long kDhcpTimeoutMs = 10000;
 constexpr int kWifiMaxNetworks = 10;
 char wifiSsid[kWifiMaxNetworks][33];
 int wifiRssi[kWifiMaxNetworks];
+uint8_t wifiChannel[kWifiMaxNetworks];
 bool wifiEncrypted[kWifiMaxNetworks];
 int wifiCount = 0;
 int wifiSelected = 0;
+int connectedChannel = -1;
 
 const char *kKnownSsid = "Casa";
 const char *kKnownPass = "04071991";
@@ -102,13 +104,18 @@ void wifiScan() {
     String ssid = WiFi.SSID(i);
     ssid.toCharArray(wifiSsid[i], sizeof(wifiSsid[i]));
     wifiRssi[i] = WiFi.RSSI(i);
+    wifiChannel[i] = WiFi.channel(i);
     wifiEncrypted[i] = (WiFi.encryptionType(i) != ENC_TYPE_NONE);
   }
   wifiSelected = 0;
+  connectedChannel = -1;
 }
 
 void startConnection() {
   WiFi.disconnect();
+  if (wifiSelected >= 0 && wifiSelected < wifiCount) {
+    connectedChannel = wifiChannel[wifiSelected];
+  }
   WiFi.begin(kKnownSsid, kKnownPass);
   setState(UiState::Connecting);
 }
@@ -204,13 +211,17 @@ void drawInfo() {
   IPAddress gw = WiFi.gatewayIP();
 
   char line[32];
-  snprintf(line, sizeof(line), "SSID: %s", WiFi.SSID().c_str());
+  snprintf(line, sizeof(line), "SSID: %s", WiFi.SSID());
   u8g2.drawStr(0, 24, line);
   snprintf(line, sizeof(line), "IP: %u.%u.%u.%u", ip[0], ip[1], ip[2], ip[3]);
   u8g2.drawStr(0, 34, line);
   snprintf(line, sizeof(line), "RSSI: %ddBm", WiFi.RSSI());
   u8g2.drawStr(0, 44, line);
-  snprintf(line, sizeof(line), "CH: %d", WiFi.channel());
+  if (connectedChannel >= 0) {
+    snprintf(line, sizeof(line), "CH: %d", connectedChannel);
+  } else {
+    snprintf(line, sizeof(line), "CH: ?");
+  }
   u8g2.drawStr(0, 54, line);
   snprintf(line, sizeof(line), "GW: %u.%u.%u.%u", gw[0], gw[1], gw[2], gw[3]);
   u8g2.drawStr(0, 62, line);
